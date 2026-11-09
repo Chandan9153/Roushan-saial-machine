@@ -1,0 +1,28 @@
+# Render Blueprint for Roushan Sewing Machine & Electronics backend.
+# In Render: New > Blueprint > connect repo Chandan9153/Roushan-saial-machine
+# and select this file (render.yaml at the repo root).
+# Secrets (MONGO_URI, JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD, FRONTEND_URL)
+# are NOT in this file — set them in the Render dashboard after import.
+# Never commit .env files to GitHub.
+services:
+  - type: web
+    name: roushan-ecommerce-backend
+    runtime: node
+    rootDir: ecommerce/backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WHATSAPP_NUMBER
+        value: "918797777269"
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
