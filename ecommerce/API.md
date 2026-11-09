@@ -47,7 +47,7 @@ Phone must be a 10-digit Indian mobile starting 6–9. Password minimum 6 charac
 | GET | `/api/orders/my-orders` | Customer | Own orders, newest first |
 | GET | `/api/orders/:id` | Customer/Admin | Own order, or any order for admin |
 
-`POST /api/orders` returns the created order plus `whatsappUrl` — a pre-filled WhatsApp message to the shop number with product names, quantities, prices, total, payment method and delivery address. Prices are always taken from the database, never trusted from the client. Price-on-enquiry items contribute 0 to `totalAmount` and are confirmed by the shop.
+`POST /api/orders` returns `{ success: true, data: <created order>, whatsappUrl }` — `whatsappUrl` is a top-level field, not inside `data`. It is a pre-filled WhatsApp message to the shop number with product names, quantities, prices, total, payment method and delivery address. Prices are always taken from the database, never trusted from the client. Price-on-enquiry items contribute 0 to `totalAmount` and are confirmed by the shop.
 
 ## Admin
 

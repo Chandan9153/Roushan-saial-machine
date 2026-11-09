@@ -21,10 +21,30 @@ async function listProducts(req, res, next) {
     const sortMap = { newest: { createdAt: -1 }, 'price-asc': { price: 1 }, 'price-desc': { price: -1 }, name: { name: 1 } };
     const sort = sortMap[req.query.sort] || { createdAt: -1 };
     const filter = productFilter(req.query);
-    const [products, total] = await Promise.all([
-      Product.find(filter).populate('category', 'name slug').sort(sort).skip((page - 1) * limit).limit(limit),
-      Product.countDocuments(filter),
-    ]);
+    let products;
+    let total;
+    try {
+      [products, total] = await Promise.all([
+        Product.find(filter).populate('category', 'name slug').sort(sort).skip((page - 1) * limit).limit(limit),
+        Product.countDocuments(filter),
+      ]);
+    } catch (err) {
+      // If the MongoDB text index has not built yet (e.g. a fresh database
+      // with very little free disk), $text search fails with
+      // "text index required for $text query". Fall back to a
+      // case-insensitive regex search on name/description instead of 500ing.
+      if (!req.query.search || !/text index/i.test(err.message || '')) throw err;
+      // eslint-disable-next-line no-console
+      console.warn('Text search unavailable, falling back to regex search:', err.message);
+      const regex = new RegExp(req.query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const fallbackFilter = { ...filter };
+      delete fallbackFilter.$text;
+      fallbackFilter.$or = [{ name: regex }, { description: regex }];
+      [products, total] = await Promise.all([
+        Product.find(fallbackFilter).populate('category', 'name slug').sort(sort).skip((page - 1) * limit).limit(limit),
+        Product.countDocuments(fallbackFilter),
+      ]);
+    }
     return res.json({ success: true, data: products, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (err) { return next(err); }
 }
