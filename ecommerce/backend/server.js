@@ -33,10 +33,22 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 connectDB()
-  .then(() => app.listen(PORT, () => {
-    // eslint-disable-next-line no-console
-    console.log(`Server running on port ${PORT}`);
-  }))
+  .then(async () => {
+    // Seed the shop's categories and products on first startup only.
+    // seedIfEmpty() does nothing when data already exists, and a seeding
+    // failure must never stop the server from starting.
+    try {
+      const { seedIfEmpty } = require('./seed');
+      await seedIfEmpty();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Auto-seed failed:', err.message);
+    }
+    app.listen(PORT, () => {
+      // eslint-disable-next-line no-console
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
   .catch((err) => {
     // eslint-disable-next-line no-console
     console.error('Failed to start server:', err.message);

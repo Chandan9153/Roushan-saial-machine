@@ -5,6 +5,11 @@
 // confirmed in the shop. The other 7 have price: null (Price on enquiry).
 // Industrial Sewing Machines and Spare Parts are seeded empty on purpose —
 // no products are invented for them.
+//
+// The live Render service runs on the Free plan, which has no Shell access,
+// so the database cannot be seeded by hand there. server.js therefore calls
+// seedIfEmpty() on startup: it seeds ONLY when the Category collection is
+// empty, and never clears or overwrites existing data.
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -43,15 +48,35 @@ const PRODUCTS = [
   ['Thread, Buttons, Collars & Buckram', 'sewing-machine-accessories', null, false, 'Thread, buttons, collars and buckram for tailoring and stitching work. Colours and types are confirmed in the shop.'],
 ];
 
-async function seed() {
-  await connectDB();
-  await Product.deleteMany({});
-  await Category.deleteMany({});
+async function insertSeedData() {
   const created = await Category.insertMany(CATEGORIES);
   const bySlug = Object.fromEntries(created.map((c) => [c.slug, c._id]));
   await Product.insertMany(PRODUCTS.map(([name, slug, price, isSamplePrice, description]) => ({
     name, description, category: bySlug[slug], price, isSamplePrice, stock: 0, images: [], specifications: [],
   })));
+  return { categories: CATEGORIES.length, products: PRODUCTS.length };
+}
+
+// Seed only when the database is empty. Safe to call on every startup:
+// it does nothing when categories already exist, and never deletes anything.
+async function seedIfEmpty() {
+  const count = await Category.countDocuments({});
+  if (count > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`Seed skipped: ${count} categories already exist.`);
+    return { seeded: false, categories: count };
+  }
+  const result = await insertSeedData();
+  // eslint-disable-next-line no-console
+  console.log(`Seeded ${result.categories} categories and ${result.products} products.`);
+  return { seeded: true, ...result };
+}
+
+async function seed() {
+  await connectDB();
+  await Product.deleteMany({});
+  await Category.deleteMany({});
+  await insertSeedData();
   // Optional admin account, only when explicitly configured in the environment.
   if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     await User.deleteOne({ email: process.env.ADMIN_EMAIL });
@@ -67,8 +92,15 @@ async function seed() {
   process.exit(0);
 }
 
-seed().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error('Seed failed:', err.message);
-  process.exit(1);
-});
+module.exports = { seed, seedIfEmpty, CATEGORIES, PRODUCTS };
+
+// Only run the full (clearing) seed when this file is executed directly:
+// `node seed.js` / `npm run seed`. Requiring it from server.js must not
+// clear the database.
+if (require.main === module) {
+  seed().catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error('Seed failed:', err.message);
+    process.exit(1);
+  });
+}
